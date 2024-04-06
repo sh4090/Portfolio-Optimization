@@ -1,0 +1,121 @@
+---
+title: "Portfolio Optimization"
+author: "Sara Hassani"
+date: "2024-04-05"
+output: html_document
+---
+
+# Setting up packages
+```{r}
+library(cgwtools)
+library(quantmod)
+library(tidyquant)
+```
+
+# Picking Stocks
+```{r}
+# The aim of this project is to optimize a portfolio holding 5 stocks for a risk-averse investor.
+# For the purpose of simplicity, we will be picking 30 stocks at random from the S&P 500 as the basis of our analysis.
+s_p = read.csv("S&P 500 Companies (Standard and Poor 500) - basics.csv")
+index_30 = sample(1:500, 30, replace = F)
+symbol_30 = s_p$Symbol[index_30]
+
+# Downloading stock prices using Yahoo! Finance API
+options("getSymbols.warning4.0"=FALSE)
+options("getSymbols.yahoo.warning"=FALSE)
+
+# List to store stock price data for all symbols
+    # The aim of this project is to attempt portfolio optimization based on the 30 stocks for 5 years, then check the performance of our portfolio over the next 5 years.
+
+stock_data_initial <- list()
+stock_data_valid <- list()
+
+# Loop through each of the 30 stocks
+for (i in 1:30) {
+  # Get the symbol
+  symbol <- symbol_30[i]
+  
+  # Fetch stock price data for the symbol
+  stock_data_initial[[symbol]] <- getSymbols(symbol, from = '2012-01-01',
+                                     to = '2016-12-31', 
+                                     warnings = FALSE,
+                                     auto.assign = FALSE)
+}
+
+for (i in 1:30) {
+  # Get the symbol
+  symbol <- symbol_30[i]
+  
+  # Fetch stock price data for the symbol
+  stock_data_valid[[symbol]] <- getSymbols(symbol, from = '2017-01-01',
+                                     to = '2021-12-31', 
+                                     warnings = FALSE,
+                                     auto.assign = FALSE)
+}
+
+save(stock_data_initial, stock_data_valid , file = "stock.Rdata")
+```
+
+# PCA Analysis for Portfolio Diversification
+
+## Data Cleaning and Restructuring
+```{r}
+# We assume that the investor in question is extremely risk averse. 
+# For this reason, we want to maximize diversification in our stock picks for their portfolio based on our assumed market of 30 stocks.
+# We will rely on PCA analysis to gauge which 5 stocks drive the most change in the market and are uncorrelated.
+
+# PCA analysis requires stationary data.
+
+# Converting daily prices into daily returns to get stationary data.
+for(i in 1:30) {
+  data = as.data.frame(stock_data_initial[[i]])
+  colnames(data) = c("open", "high", "low", "close", "volume", "adjusted")
+  data$returns = (data$close - data$open)/data$open
+  stock_data_initial[[i]] = data
+}
+
+# Matrix of returns
+    # We do not have the prices for each stock, on every single day, so we need to make sure that the prices are merges to the adequate date.
+dates <- seq(as.Date("2012-01-01"), as.Date("2016-12-31"), by = "day")
+dates <- format(dates, "%Y-%m-%d")
+returns_max = matrix(ncol = 30, nrow = length(dates), data = NA)
+
+colnames(returns_max) = symbol_30
+row.names(returns_max) = dates
+
+for(i in 1:30){
+  data = stock_data_initial[[i]]
+  stock_dates = rownames(data)
+  ind = match(stock_dates, dates)
+  returns_max[ind,i] = data$returns
+}
+
+head(returns_max)
+
+# From examining our matrix, the stocks PSX, KHC, and HWM have too many missing variables. This will limit our analysis. It is better to get rid of them.
+returns_max = returns_max[, !(colnames(returns_max) %in% c("PSX", "KHC", "HWM"))]
+ 
+   # Omitting days with missing data
+returns_max = na.omit(returns_max)
+
+resave(stock_data_initial, stock_data_valid , returns_max, file = "stock.Rdata")
+```
+
+## Checking for Stationarity
+
+```{r}
+# Auto-Correlation Function
+acf(returns_max[,6])
+acf(returns_max[,16])
+acf(returns_max[,26])
+acf(returns_max[,1])
+acf(returns_max[,12])
+```
+
+
+
+
+
+
+
+
