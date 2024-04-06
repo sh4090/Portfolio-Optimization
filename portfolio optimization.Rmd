@@ -1,9 +1,4 @@
----
-title: "Portfolio Optimization"
-author: "Sara Hassani"
-date: "2024-04-05"
-output: html_document
----
+
 
 # Setting up packages
 ```{r}
